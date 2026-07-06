@@ -1,0 +1,98 @@
+name: MLOps CI Pipeline
+
+# Triggers on every push and pull request targeting main, so problems are
+# caught before merging (per assignment FAQ: pipeline must automate linting,
+# unit testing, and model training, and must fail loudly on errors).
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Cache pip dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install flake8 pytest pytest-cov
+
+      # --- Step 1: Linting ---
+      # Fails the pipeline immediately on real code issues (unused imports,
+      # syntax problems, etc.), before spending time on data/training.
+      - name: Lint with flake8
+        run: |
+          flake8 src/ app/ tests/ --max-line-length=100
+
+      # --- Step 2: Data acquisition ---
+      - name: Download dataset
+        run: |
+          python src/data_download.py
+
+      # --- Step 3: Preprocessing (cleaning, splitting, fitting the pipeline) ---
+      - name: Run preprocessing
+        run: |
+          python src/preprocess.py
+
+      # --- Step 4: Model training (with MLflow tracking) ---
+      # Listed as "optional" in the assignment FAQ, but included here since
+      # the unit tests below validate the trained model artifact directly.
+      - name: Train models
+        run: |
+          python src/train.py
+
+      # --- Step 5: Unit tests ---
+      # Covers data processing, the packaged model, and the API layer.
+      # A failure here fails the whole workflow (required by the assignment).
+      - name: Run unit tests
+        run: |
+          pytest tests/ -v --cov=src --cov=app --cov-report=term-missing --cov-report=xml
+
+      # --- Artifacts: make outputs inspectable from the Actions UI ---
+      - name: Upload model artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: model-artifacts
+          path: |
+            models/final_model.joblib
+            models/preprocessor.joblib
+            models/model_metadata.json
+          retention-days: 14
+
+      - name: Upload EDA / experiment report artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: report-artifacts
+          path: |
+            report/*.png
+            report/*.csv
+          retention-days: 14
+
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage.xml
+          retention-days: 14
