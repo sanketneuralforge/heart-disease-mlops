@@ -5,4 +5,7 @@ data/raw/
 models/*.pkl
 .ipynb_checkpoints/
 mlruns/
-.env
+.envmlflow.db
+mlflow.db-*
+models/*.joblib
+data/processed/
