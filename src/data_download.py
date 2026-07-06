@@ -1,11 +1,19 @@
 """
-Download and save the Heart Disease UCI dataset.
-Source: UCI Machine Learning Repository (dataset id=45, Cleveland subset)
+src/data_download.py
+
+MLOps Assignment 01 (AIMLCZG523) — Task 1: Data Acquisition.
+
+Downloads and saves the Heart Disease UCI dataset via the official
+ucimlrepo package (UCI Machine Learning Repository, id=45, Cleveland subset).
+
+Usage:
+    python src/data_download.py
 """
 
+import os
 import pandas as pd
 from ucimlrepo import fetch_ucirepo
-import os
+
 
 def download_heart_disease_data(output_dir="data"):
     os.makedirs(f"{output_dir}/raw", exist_ok=True)
@@ -27,6 +35,7 @@ def download_heart_disease_data(output_dir="data"):
     print(f"Columns: {list(df.columns)}")
 
     return df
+
 
 if __name__ == "__main__":
     download_heart_disease_data()
