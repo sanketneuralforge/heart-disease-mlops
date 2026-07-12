@@ -63,6 +63,7 @@ app = FastAPI(
 # Prometheus scrapes this endpoint; see docker-compose.yml + prometheus.yml.
 Instrumentator().instrument(app).expose(app, endpoint="/metrics")
 
+
 class PatientData(BaseModel):
     """
     Raw (untransformed) patient features, matching the Heart Disease UCI schema.
