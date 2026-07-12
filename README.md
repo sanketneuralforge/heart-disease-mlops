@@ -37,61 +37,115 @@ heart-disease-mlops/
 └── requirements.txt
 ```
 
-## Quickstart
+## Running the Full Project (Step by Step)
+
+This mirrors exactly how the project is run end-to-end, including the monitoring stack and Kubernetes deployment. Each numbered step assumes its own terminal tab, since several stay running simultaneously.
+
+### 1. Clone & set up the environment
 
 ```bash
 git clone https://github.com/sanketneuralforge/heart-disease-mlops.git
 cd heart-disease-mlops
-python -m venv venv && source venv/bin/activate
+python -m venv venv
+source venv/bin/activate        # Windows: venv\Scripts\activate
+pip install --upgrade pip
 pip install -r requirements.txt
-
-python src/data_download.py
-python src/preprocess.py
-python src/train.py
-pytest tests/ -v
 ```
 
-## Run the API
+### 2. Run the pipeline fresh
 
 ```bash
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
-# Swagger UI: http://localhost:8000/docs
+python src/data_download.py     # downloads UCI Heart Disease dataset
+python src/preprocess.py        # cleans, splits, fits the preprocessing pipeline
+python src/train.py             # trains + tunes 3 models, logs everything to MLflow
+pytest tests/ -v                # should end in "20 passed"
 ```
 
-```bash
-curl -X POST http://localhost:8000/predict \
-  -H "Content-Type: application/json" \
-  -d '{"age":63,"sex":1,"cp":3,"trestbps":145,"chol":233,"fbs":1,"restecg":0,"thalach":150,"exang":0,"oldpeak":2.3,"slope":0,"ca":0,"thal":1}'
-```
-
-## Experiment Tracking
+### 3. View experiment tracking (new terminal, leave running)
 
 ```bash
 mlflow ui --backend-store-uri sqlite:///mlflow.db --port 5001
 ```
+Open **http://localhost:5001** → `heart-disease-classification` experiment → compare the 3 runs → click into `logistic_regression` (the winner) to see its metrics and logged confusion matrix / ROC curve.
 
-## Docker
+### 4. Run the API + monitoring stack (new terminal, leave running)
+
+```bash
+docker ps                       # check ports 8000/9090/3000 are free
+docker-compose up -d
+docker ps                       # confirm all 3 containers are Up, api is healthy
+```
+Open:
+- **http://localhost:8000/docs** — Swagger UI, try `/predict` directly
+- **http://localhost:9090/targets** — Prometheus, confirm `heart-disease-api` is UP
+- **http://localhost:3000** — Grafana (login `admin`/`admin`), open the saved dashboard
+
+### 5. Deploy to Kubernetes (new terminal)
+
+```bash
+kubectl get nodes                              # confirm cluster is up
+kubectl apply -f k8s/deployment.yaml
+kubectl apply -f k8s/service.yaml
+kubectl get pods                               # wait for both Running, 1/1
+kubectl get svc heart-disease-api-service
+```
+
+Test it through the service (not the direct container port):
+```bash
+curl -X POST http://localhost/predict \
+  -H "Content-Type: application/json" \
+  -d '{"age":63,"sex":1,"cp":3,"trestbps":145,"chol":233,"fbs":1,"restecg":0,"thalach":150,"exang":0,"oldpeak":2.3,"slope":0,"ca":0,"thal":1}'
+```
+
+### 6. Generate traffic to see monitoring live (new terminal)
+
+```bash
+for i in {1..30}; do
+curl -s -X POST http://localhost:8000/predict \
+  -H "Content-Type: application/json" \
+  -d '{"age":63,"sex":1,"cp":3,"trestbps":145,"chol":233,"fbs":1,"restecg":0,"thalach":150,"exang":0,"oldpeak":2.3,"slope":0,"ca":0,"thal":1}' > /dev/null
+sleep 0.5
+done
+```
+Watch the Grafana dashboard (step 4) update in real time.
+
+### 7. Final sanity check
+
+```bash
+curl -s http://localhost:8000/health           # API healthy
+curl -s http://localhost:9090/-/healthy         # Prometheus healthy
+kubectl get pods --no-headers | grep -c Running # should print 2
+```
+
+### Shutting everything down
+
+```bash
+docker-compose down
+kubectl delete -f k8s/service.yaml
+kubectl delete -f k8s/deployment.yaml
+deactivate
+```
+
+---
+
+## Individual Commands (Reference)
+
+<details>
+<summary>Run just the API locally (no Docker)</summary>
+
+```bash
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+```
+</details>
+
+<details>
+<summary>Build the Docker image manually</summary>
 
 ```bash
 docker build -t heart-disease-api:latest .
 docker run -d -p 8000:8000 heart-disease-api:latest
 ```
-
-## Monitoring Stack (API + Prometheus + Grafana)
-
-```bash
-docker-compose up -d
-# API: localhost:8000  Prometheus: localhost:9090  Grafana: localhost:3000
-```
-
-## Kubernetes Deployment
-
-```bash
-kubectl apply -f k8s/deployment.yaml
-kubectl apply -f k8s/service.yaml
-kubectl get pods
-kubectl get svc heart-disease-api-service
-```
+</details>
 
 ## Notes on Reproducibility
 
