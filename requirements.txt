@@ -114,6 +114,7 @@ pillow==12.3.0
 platformdirs==4.10.0
 pluggy==1.6.0
 prettytable==3.18.0
+prometheus-fastapi-instrumentator==8.0.2
 prometheus_client==0.25.0
 prompt_toolkit==3.0.52
 propcache==0.5.2

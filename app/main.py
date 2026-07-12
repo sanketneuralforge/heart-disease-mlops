@@ -23,6 +23,7 @@ import joblib
 import pandas as pd
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, ConfigDict, Field
+from prometheus_fastapi_instrumentator import Instrumentator
 
 logging.basicConfig(
     level=logging.INFO,
@@ -58,6 +59,9 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# Exposes /metrics with request counts, latency histograms, status codes, etc.
+# Prometheus scrapes this endpoint; see docker-compose.yml + prometheus.yml.
+Instrumentator().instrument(app).expose(app, endpoint="/metrics")
 
 class PatientData(BaseModel):
     """
