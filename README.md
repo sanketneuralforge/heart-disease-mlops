@@ -153,4 +153,4 @@ The preprocessing pipeline (impute → scale → one-hot encode) and the winning
 
 ---
 
-**Sanket Panchalwar** · BITS Pilani, MTech (AI/ML) · [Full report in this repo](./MLOps_Assignment01_Report.docx)
+**Sanket Panchalwar** · BITS Pilani, MTech (AI/ML) · [Full report in this repo](https://docs.google.com/document/d/1unvI48AUX2bxj8PPEuII5EzmeeY87URB/edit)
